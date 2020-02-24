@@ -133,120 +133,13 @@ val_features, val_targets = features[-60*24:], targets[-60*24:]
 # 
 #   
 
-# In[121]:
+# In[22]:
 
 
-def p(a, name, printable = False):
-    if printable:
-        print('-'*(len(name) + 15))
-        print(f'{name}.shape: {a.shape}')
-        print(a)
-    else:
-        pass
-
-class NeuralNetwork(object):
-    def __init__(self, input_nodes, hidden_nodes, output_nodes, learning_rate):
-        # Set number of nodes in input, hidden and output layers.
-        self.input_nodes = input_nodes
-        self.hidden_nodes = hidden_nodes
-        self.output_nodes = output_nodes
-
-        # Initialize weights
-        self.weights_input_to_hidden = np.random.normal(0.0, self.input_nodes**-0.5, 
-                                       (self.input_nodes, self.hidden_nodes))
-
-        self.weights_hidden_to_output = np.random.normal(0.0, self.hidden_nodes**-0.5, 
-                                       (self.hidden_nodes, self.output_nodes))
-        self.lr = learning_rate
-        self.activation_function = lambda x : 1/(1 + np.exp(-x))
-        self.activation_prime = lambda x: self.activation_function(x) * (1.0 - self.activation_function(x))
-
-    def train(self, features, targets):
-        ''' Train the network on batch of features and targets. 
-        
-            Arguments
-            ---------
-            
-            features: 2D array, each row is one data record, each column is a feature
-            targets: 1D array of target values
-        
-        '''
-        n_records = features.shape[0]
-        delta_weights_i_h = np.zeros(self.weights_input_to_hidden.shape)
-        delta_weights_h_o = np.zeros(self.weights_hidden_to_output.shape)
-        for X, y in zip(features, targets):
-            p(X, 'X')
-            p(y, 'y')
-            ### Forward pass ###
-            
-            # X ~ (m,)
-            # self.weights_input_to_hidden ~ (m, h)
-            # self.weights_hidden_to_output ~ (h, o)
-
-            # hidden_inputs is the 
-            hidden_inputs = np.dot(X, self.weights_input_to_hidden)
-            p(hidden_inputs, 'hidden_inputs')
-            # hidden_inputs = (m,) . (m, h) = {h,}
-            
-            hidden_outputs = self.activation_function(hidden_inputs)
-            p(hidden_outputs, 'hidden_outputs')
-            
-            final_inputs = np.dot(hidden_outputs, self.weights_hidden_to_output)
-            p(final_inputs, 'final_inputs')
-            # final_inputs = （h,) . (h, o) = (o, )
-            
-            final_outputs = final_inputs
-            
-            ### Backward pass ###
-            
-            # calculating y - y_hat
-            error = y - final_outputs
-            p(error, 'error')
-            
-            # the d lambda x: x / d x is 1
-            output_error_term = error * 1.0
-            p(output_error_term, 'output_error_term')
-            
-            # weight the error back to hidden layer
-            hidden_error = np.dot(self.weights_hidden_to_output, error) 
-            p(hidden_error, 'hidden_error')
-            # hidden_error = (h, o) . (o,) = (h,)
-            
-            # chain rule: error * sigmoid_prime to retrive back hidden_inputs value
-            hidden_error_term = hidden_error * self.activation_prime(hidden_inputs)
-            p(hidden_error_term, 'hidden_error_term')
-            
-            # chain rule: error * sigmoid_prime * features to retrive back weight0
-            delta_weights_i_h += hidden_error_term * X[:,None]
-            p(delta_weights_i_h, 'delta_weights_i_h')
-            # delta_weights_i_h = (h,) . (m, 1) = (m, h)
-            
-            # chain rule: error * 1 * features to retrive back weight1
-            delta_weights_h_o += output_error_term * hidden_outputs[:,None]
-            p(delta_weights_h_o, 'delta_weights_h_o')
-            # delta_weights_h_o = (o,) . (h,1) = (h, o)
-
-            
-        # Weights update
-        self.weights_hidden_to_output += self.lr*delta_weights_h_o
-        self.weights_input_to_hidden += self.lr*delta_weights_i_h
-        
-    def run(self, features):
-        ''' Run a forward pass through the network with input features 
-        
-            Arguments
-            ---------
-            features: 1D array of feature values
-        '''
-        # Forward pass
-        hidden_inputs =  np.dot(features, self.weights_input_to_hidden)
-        hidden_outputs = self.activation_function(hidden_inputs)
-        final_inputs = np.dot(hidden_outputs, self.weights_hidden_to_output)
-        final_outputs = final_inputs 
-        return final_outputs
+from model import NeuralNetwork
 
 
-# In[122]:
+# In[23]:
 
 
 def MSE(y, Y):
@@ -257,7 +150,7 @@ def MSE(y, Y):
 # 
 # 运行这些单元测试，检查你的网络实现是否正确。这样可以帮助你确保网络已正确实现，然后再开始训练网络。这些测试必须成功才能通过此项目。
 
-# In[123]:
+# In[24]:
 
 
 import unittest
@@ -340,19 +233,65 @@ unittest.TextTestRunner().run(suite)
 # 
 # 隐藏节点越多，模型的预测结果就越准确。尝试不同的隐藏节点的数量，看看对性能有何影响。你可以查看损失字典，寻找网络性能指标。如果隐藏单元的数量太少，那么模型就没有足够的空间进行学习，如果太多，则学习方向就有太多的选择。选择隐藏单元数量的技巧在于找到合适的平衡点。
 
-# In[146]:
+# In[ ]:
+
+
+get_ipython().run_line_magic('load_ext', 'autoreload')
+
+
+# In[118]:
+
+
+get_ipython().run_line_magic('autoreload', '2')
+from gridsearch import GridSearch
+from model import NeuralNetwork
+
+
+# In[131]:
+
+
+from collections import OrderedDict
+
+parameters = OrderedDict()
+parameters['hidden_nodes'] = [10,12,14,16,18,20,22,24]
+parameters['learning_rate'] = [0.01, 0.04, 0.03, 0.02, 0.05, 0.005, 0.001]
+parameters['dropout'] = [0,.1, .2, .3, .4, .5]
+parameters['iters'] = [200,1000,2000,3000,4000,5000]
+
+
+# In[132]:
+
+
+parameters
+
+
+# In[133]:
+
+
+g = GridSearch(NeuralNetwork, MSE, train_features, train_targets, val_features, val_targets)
+g.run(parameters)
+
+
+# In[134]:
+
+
+g.final_parameters
+
+
+# In[136]:
 
 
 import sys
 
 ### Set the hyperparameters here ###
-iterations = 300
-learning_rate = 0.01
-hidden_nodes = 8
+iterations = 6000
+learning_rate = 0.005
+hidden_nodes = 12
 output_nodes = 1
+dropout = 0.03
 
 N_i = train_features.shape[1]
-network = NeuralNetwork(N_i, hidden_nodes, output_nodes, learning_rate)
+network = NeuralNetwork(N_i, hidden_nodes, output_nodes, learning_rate, dropout=dropout)
 
 losses = {'train':[], 'validation':[]}
 for ii in range(iterations):
@@ -370,11 +309,45 @@ for ii in range(iterations):
     
     losses['train'].append(train_loss)
     losses['validation'].append(val_loss)
+    
+plt.plot(losses['train'], label='Training loss')
+plt.plot(losses['validation'], label='Validation loss')
+plt.legend()
+_ = plt.ylim()
 
 
-# In[147]:
+# In[137]:
 
 
+import sys
+
+### Set the hyperparameters here ###
+iterations = 5000
+learning_rate = 0.005
+hidden_nodes = 12
+output_nodes = 1
+dropout = 0
+
+N_i = train_features.shape[1]
+network = NeuralNetwork(N_i, hidden_nodes, output_nodes, learning_rate, dropout=dropout)
+
+losses = {'train':[], 'validation':[]}
+for ii in range(iterations):
+    # Go through a random batch of 128 records from the training data set
+    batch = np.random.choice(train_features.index, size=128)
+    X, y = train_features.ix[batch].values, train_targets.ix[batch]['cnt']
+                             
+    network.train(X, y)
+    
+    # Printing out the training progress
+    train_loss = MSE(network.run(train_features).T, train_targets['cnt'].values)
+    val_loss = MSE(network.run(val_features).T, val_targets['cnt'].values)
+    sys.stdout.write("\rProgress: {:2.1f}".format(100 * ii/float(iterations))                      + "% ... Training loss: " + str(train_loss)[:5]                      + " ... Validation loss: " + str(val_loss)[:5])
+    sys.stdout.flush()
+    
+    losses['train'].append(train_loss)
+    losses['validation'].append(val_loss)
+    
 plt.plot(losses['train'], label='Training loss')
 plt.plot(losses['validation'], label='Validation loss')
 plt.legend()
@@ -385,7 +358,7 @@ _ = plt.ylim()
 # 
 # 使用测试数据看看网络对数据建模的效果如何。如果完全错了，请确保网络中的每步都正确实现。
 
-# In[148]:
+# In[138]:
 
 
 fig, ax = plt.subplots(figsize=(8,4))
@@ -411,7 +384,12 @@ _ = ax.set_xticklabels(dates[12::24], rotation=45)
 # > **注意**：你可以通过双击该单元编辑文本。如果想要预览文本，请按 Control + Enter
 # 
 # #### 请将你的答案填写在下方
-# 对数据的预测效果较好，在训练过程中，模型在训练集和验证集上都有同步下降，说明没有出现过拟合情况。验证集的MSE最终为0.045，说明平均每小时预测误差不超过0.7。同时测试集上的图像显示模型对于未来数据有较好预测效果。
+# 对数据的预测效果较好，在训练过程中，模型在训练集和验证集上都有同步下降，说明没有出现过拟合情况。验证集的MSE最终为0.126，说明平均每小时预测误差不超过0.35。同时测试集上的图像显示模型对于未来数据有较好预测效果。
+# 
+# 还有两个问题想要得到解答：
+# 1）我试着应用dropout机制防止过拟合，但是在实验中训练集和测试集的loss都不能持续下降，dropout rate我已经设置的比较低，请问是我的实现错了么？
+# 2）在grid search过程中我发现loss变成了nan或者非常高，我的理解是overshoting的原因，请问这样理解对么？
+# 谢谢解答
 
 # In[ ]:
 
